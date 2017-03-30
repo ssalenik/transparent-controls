@@ -4,7 +4,7 @@ QT += qml quick
 SOURCES += main.cpp
 
 
-target.path = /usr/bin
+target.path = /opt/transparent
 qml.files = transparent.qml
-qml.path = /usr/share/transparent-controls
+qml.path = /opt/transparent
 INSTALLS += target qml
