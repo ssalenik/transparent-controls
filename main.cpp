@@ -63,9 +63,9 @@ do_gstreamer_pipeline()
     GstElement *sink = gst_element_factory_make ("imxg2dvideosink", "imxg2dvideosink");
 
     GstCaps *filter1 = gst_caps_new_simple ("image/jpeg",
-        "width", G_TYPE_STRING, "1280",
-        "height", G_TYPE_STRING, "720",
-        "framerate", G_TYPE_STRING, "30/1",
+        "width", G_TYPE_INT, 1280,
+        "height", G_TYPE_INT, 720,
+        "framerate", GST_TYPE_FRACTION, 30, 1,
         NULL
     );
 
