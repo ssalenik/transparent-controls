@@ -325,6 +325,9 @@ done:
 
 int main(int argc, char* argv[])
 {
+    qputenv("QT_QPA_EGLFS_FB", "/dev/fb1");
+    qputenv("QT_QPA_PLATFORM", "eglfs");
+
     do_framebuffer_setup();
 
     QGuiApplication app(argc,argv);
