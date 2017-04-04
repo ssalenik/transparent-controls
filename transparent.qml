@@ -1,18 +1,18 @@
 import QtQuick 2.2
 import QtQuick.Window 2.0
-import QtQuick.Controls 1.1
-import QtQuick.Controls.Styles 1.1
+import QtQuick.Controls 1.2
+import QtQuick.Controls.Styles 1.2
 
 ApplicationWindow {
     id: backlight
     flags: Qt.FramelessWindowHint
     visible: true
     title: qsTr("backlight")
-    width: 500
-    height: 50
     x: (Screen.width - width) / 2
     y: (Screen.height - height) / 2
     color: "transparent"
+    width: Screen.width
+    height: Screen.height
 
     property real slideValue
     signal onSlide(real value)
@@ -54,6 +54,33 @@ ApplicationWindow {
                     width: 34
                     height: 34
                     radius: 17
+                }
+            }
+        }
+    }
+
+    Button {
+        id: button_record
+        anchors.bottom: parent.bottom
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottomMargin: 10
+        
+        style: ButtonStyle {
+            label: Text {
+                text: "\u2B24" // unicode circle for record
+                color: "#ff0000"
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+            }
+            background: Rectangle {
+                implicitWidth: 40
+                implicitHeight: 40
+                border.width: control.activeFocus ? 2 : 1
+                border.color: "#888"
+                radius: 20
+                gradient: Gradient {
+                    GradientStop { position: 0 ; color: control.pressed ? "#ccc" : "#eee" }
+                    GradientStop { position: 1 ; color: control.pressed ? "#aaa" : "#ccc" }
                 }
             }
         }
