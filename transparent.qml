@@ -4,10 +4,10 @@ import QtQuick.Controls 1.2
 import QtQuick.Controls.Styles 1.2
 
 ApplicationWindow {
-    id: backlight
+    id: window_transparent
     flags: Qt.FramelessWindowHint
     visible: true
-    title: qsTr("backlight")
+    title: qsTr("transparent controls")
     x: (Screen.width - width) / 2
     y: (Screen.height - height) / 2
     color: "transparent"
@@ -29,8 +29,7 @@ ApplicationWindow {
 
         Slider {
             anchors.centerIn: parent
-            width: backlight.width - 16
-            height: backlight.height
+            width: window_transparent.width - 16
 
             maximumValue: 255
             minimumValue: 0
