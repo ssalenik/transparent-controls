@@ -1,7 +1,8 @@
 TEMPLATE = app
 
 QT += qml quick
-SOURCES += main.cpp
+HEADERS += Pipeline.h
+SOURCES += main.cpp pipeline.cpp
 
 CONFIG +=link_pkgconfig
 PKGCONFIG +=gstreamer-1.0
