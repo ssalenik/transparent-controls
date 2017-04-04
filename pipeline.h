@@ -25,6 +25,7 @@ private:
     GstCaps *m_pFilter1;
     GstCaps *m_pFilter2;
     GstBus *m_pBus;
+    GstStructure *m_pExtraControls;
 
     guint m_busWatchId;
 };

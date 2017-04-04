@@ -14,9 +14,6 @@ ApplicationWindow {
     width: Screen.width
     height: Screen.height
 
-    property real slideValue
-    signal onSlide(real value)
-
     Rectangle {
         anchors.centerIn: parent
         width: parent.width
@@ -34,9 +31,12 @@ ApplicationWindow {
             anchors.centerIn: parent
             width: backlight.width - 16
             height: backlight.height
-            value: backlight.slideValue
+
+            maximumValue: 255
+            minimumValue: 0
+            value: 128
             focus: true
-            onValueChanged: backlight.onSlide(value)
+            onValueChanged: pipeline.setBrightness(parseInt(value))
             Keys.onSpacePressed: Qt.quit()
             Keys.onEscapePressed: Qt.quit()
 
@@ -64,7 +64,7 @@ ApplicationWindow {
         anchors.bottom: parent.bottom
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottomMargin: 10
-        
+
         style: ButtonStyle {
             label: Text {
                 text: "\u2B24" // unicode circle for record

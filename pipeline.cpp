@@ -56,10 +56,14 @@ Pipeline::Pipeline(QObject *parent)
         NULL
     );
 
-    if (!m_pPipeline || !m_pV4l2 || !m_pFilter1 || !m_pVpudec || !m_pQueue || !m_pVideoconvert || !m_pFilter2 || !m_pSink) {
+    m_pExtraControls = gst_structure_new("c", "brightness", G_TYPE_INT, 128, NULL);
+
+    if (!m_pPipeline || !m_pV4l2 || !m_pExtraControls || !m_pFilter1 || !m_pVpudec || !m_pQueue || !m_pVideoconvert || !m_pFilter2 || !m_pSink) {
         g_printerr ("One element could not be created. Exiting.\n");
         exit(-1);
     }
+
+    g_object_set(m_pV4l2, "extra-controls", m_pExtraControls, NULL);
 
     /* we add a message handler */
     m_pBus = gst_pipeline_get_bus (GST_PIPELINE (m_pPipeline));
@@ -115,7 +119,8 @@ void Pipeline::stop()
 
 void Pipeline::setBrightness(int level)
 {
-    //TODO
+    gst_structure_set(m_pExtraControls, "brightness", G_TYPE_INT, level, NULL);
+    g_object_set(m_pV4l2, "extra-controls", m_pExtraControls, NULL);
 }
 
 #include "moc_pipeline.cpp"
