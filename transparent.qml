@@ -92,7 +92,7 @@ ApplicationWindow {
         ]
 
         onClicked: {
-            state == "on" ? print("-> off") : print("-> on")
+            state == "on" ? pipeline.stop() : pipeline.record()
             state == "on" ? state = "off" : state = "on"
         }
     }

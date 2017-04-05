@@ -2,6 +2,9 @@
 
 #include <QObject>
 #include <gst/gst.h>
+#include <atomic>
+
+typedef struct _FileSink FileSink;
 
 class Pipeline : public QObject
 {
@@ -24,13 +27,15 @@ private:
     GstElement *m_pVideoSink;
     GstCaps *m_pFilter1;
     GstElement *m_pTee;
-    GstElement *m_pQueue2;
-    GstElement *m_pVideoconvert2;
-    GstElement *m_pEncoder;
-    GstElement *m_pFileSink;
 
     GstBus *m_pBus;
     GstStructure *m_pExtraControls;
 
     guint m_busWatchId;
+
+    // dynamic pipeline vars
+    bool m_recording {false};
+
+    FileSink *m_pFileSink;
+
 };
