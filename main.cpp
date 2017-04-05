@@ -248,10 +248,11 @@ int main(int argc, char* argv[])
     gst_init (&argc, &argv);
 
     QQmlApplicationEngine engine;
-    engine.load(QUrl::fromLocalFile(QCoreApplication::applicationDirPath() + QLatin1String("/transparent.qml")));
 
     Pipeline *pipeline = new Pipeline(&engine);
     engine.rootContext()->setContextProperty(QLatin1String("pipeline"), pipeline);
+
+    engine.load(QUrl::fromLocalFile(QCoreApplication::applicationDirPath() + QLatin1String("/transparent.qml")));
 
     return app.exec();
 }
