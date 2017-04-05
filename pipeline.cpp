@@ -1,5 +1,21 @@
 #include "pipeline.h"
 
+#include <QDebug>
+
+struct _FileSink
+{
+    // do not unref these two
+    GstElement *pipeline;
+    GstElement *tee;
+
+    GstPad *teepad;
+    GstElement *queue;
+    GstElement *conv;
+    GstElement *enc;
+    GstElement *sink;
+    gboolean removing;
+};
+
 static gboolean
 bus_call (GstBus     *,
           GstMessage *msg,
@@ -40,9 +56,13 @@ Pipeline::Pipeline(QObject *parent)
     m_pPipeline = gst_pipeline_new("camera");
     m_pV4l2 = gst_element_factory_make ("v4l2src", "v4l2src");
     m_pVpudec = gst_element_factory_make ("vpudec", "vpudec");
-    m_pQueue = gst_element_factory_make ("queue", "queue");
-    m_pVideoconvert = gst_element_factory_make ("imxvideoconvert_g2d", "imxvideoconvert_g2d");
-    m_pSink = gst_element_factory_make ("imxg2dvideosink", "imxg2dvideosink");
+
+    m_pTee = gst_element_factory_make ("tee", "tee");
+
+    // tee one
+    m_pQueue1 = gst_element_factory_make ("queue", "queue 1");
+    m_pVideoconvert1 = gst_element_factory_make ("imxvideoconvert_g2d", "convert 1");
+    m_pVideoSink = gst_element_factory_make ("imxg2dvideosink", "imxg2dvideosink");
 
     m_pFilter1 = gst_caps_new_simple ("image/jpeg",
         "width", G_TYPE_INT, 1280,
@@ -58,7 +78,8 @@ Pipeline::Pipeline(QObject *parent)
 
     m_pExtraControls = gst_structure_new("c", "brightness", G_TYPE_INT, 128, NULL);
 
-    if (!m_pPipeline || !m_pV4l2 || !m_pExtraControls || !m_pFilter1 || !m_pVpudec || !m_pQueue || !m_pVideoconvert || !m_pFilter2 || !m_pSink) {
+    if (!m_pPipeline || !m_pV4l2 || !m_pExtraControls || !m_pFilter1 || !m_pVpudec || !m_pQueue1 ||
+        !m_pVideoconvert1 || !m_pFilter2 || !m_pVideoSink ) {
         g_printerr ("One element could not be created. Exiting.\n");
         exit(-1);
     }
@@ -71,22 +92,23 @@ Pipeline::Pipeline(QObject *parent)
     gst_object_unref (m_pBus);
 
     /* configure sink */
-    g_object_set (m_pSink, "use-vsync", TRUE, NULL);
+    g_object_set (m_pVideoSink, "use-vsync", TRUE, NULL);
 
     /* we add all elements into the pipeline */
-    gst_bin_add_many (GST_BIN(m_pPipeline), m_pV4l2, m_pVpudec, m_pQueue, m_pVideoconvert, m_pSink, NULL);
+    gst_bin_add_many (GST_BIN(m_pPipeline), m_pV4l2, m_pVpudec, m_pTee, m_pQueue1, m_pVideoconvert1,
+        m_pVideoSink, NULL);
 
     if (!gst_element_link_filtered(m_pV4l2, m_pVpudec, m_pFilter1)) {
         g_printerr ("Could not link v4l2 caps.\n");
         exit(-1);
     }
 
-    if (!gst_element_link_many (m_pVpudec, m_pQueue, m_pVideoconvert, NULL)) {
+    if (!gst_element_link_many (m_pVpudec, m_pTee, m_pQueue1, m_pVideoconvert1, NULL)) {
         g_printerr ("Could not link pipeline.\n");
         exit(-1);
     }
 
-    if (!gst_element_link_filtered(m_pVideoconvert, m_pSink, m_pFilter2)) {
+    if (!gst_element_link_filtered(m_pVideoconvert1, m_pVideoSink, m_pFilter2)) {
         g_printerr ("Could not link videoconvert caps.\n");
         exit(-1);
     }
@@ -107,14 +129,98 @@ Pipeline::~Pipeline()
     m_busWatchId = 0;
 }
 
+static GstPadProbeReturn
+unlink_cb(GstPad *, GstPadProbeInfo *, gpointer user_data)
+{
+    FileSink *filesink = (FileSink *)user_data;
+    GstPad *sinkpad;
+
+    if (!g_atomic_int_compare_and_exchange (&filesink->removing, FALSE, TRUE))
+        return GST_PAD_PROBE_OK;
+
+    sinkpad = gst_element_get_static_pad (filesink->queue, "sink");
+    gst_pad_unlink (filesink->teepad, sinkpad);
+    gst_object_unref (sinkpad);
+
+    gst_bin_remove (GST_BIN (filesink->pipeline), filesink->queue);
+    gst_bin_remove (GST_BIN (filesink->pipeline), filesink->conv);
+    gst_bin_remove (GST_BIN (filesink->pipeline), filesink->enc);
+    gst_bin_remove (GST_BIN (filesink->pipeline), filesink->sink);
+
+    gst_element_set_state (filesink->sink, GST_STATE_NULL);
+    gst_element_set_state (filesink->conv, GST_STATE_NULL);
+    gst_element_set_state (filesink->enc, GST_STATE_NULL);
+    gst_element_set_state (filesink->queue, GST_STATE_NULL);
+
+    gst_object_unref (filesink->queue);
+    gst_object_unref (filesink->conv);
+    gst_object_unref (filesink->enc);
+    gst_object_unref (filesink->sink);
+
+    gst_element_release_request_pad (filesink->tee, filesink->teepad);
+    gst_object_unref (filesink->teepad);
+
+    return GST_PAD_PROBE_REMOVE;
+}
+
 void Pipeline::record()
 {
-    //TODO
+    if (m_recording) return;
+
+    qDebug() << "start recording";
+    m_recording = true;
+
+    m_pFileSink = (FileSink *)g_new0 (FileSink, 1);
+    m_pFileSink->pipeline = m_pPipeline;
+    m_pFileSink->tee = m_pTee;
+
+    GstPad *sinkpad;
+    GstPadTemplate *templ;
+
+    templ = gst_element_class_get_pad_template (GST_ELEMENT_GET_CLASS (m_pTee), "src_%u");
+
+    m_pFileSink->teepad = gst_element_request_pad (m_pTee, templ, NULL, NULL);
+
+    // tee two
+    m_pFileSink->queue = gst_element_factory_make ("queue", "queue 2");
+    m_pFileSink->conv = gst_element_factory_make ("videoconvert", "convert 2");
+    m_pFileSink->enc = gst_element_factory_make ("avenc_mpeg4", "avenc_mpeg4");
+    m_pFileSink->sink = gst_element_factory_make ("filesink", "filesink");
+
+    g_object_set(m_pFileSink->sink, "location", "test.mpeg", NULL);
+
+    m_pFileSink->removing = false;
+
+    gst_bin_add_many (GST_BIN (m_pPipeline),
+        GST_ELEMENT(gst_object_ref (m_pFileSink->queue)),
+        GST_ELEMENT(gst_object_ref (m_pFileSink->conv)),
+        GST_ELEMENT(gst_object_ref (m_pFileSink->enc)),
+        GST_ELEMENT(gst_object_ref (m_pFileSink->sink)),
+        NULL);
+
+    gst_element_link_many (m_pFileSink->queue, m_pFileSink->conv, m_pFileSink->enc, m_pFileSink->sink, NULL);
+
+    gst_element_sync_state_with_parent (m_pFileSink->queue);
+    gst_element_sync_state_with_parent (m_pFileSink->conv);
+    gst_element_sync_state_with_parent (m_pFileSink->enc);
+    gst_element_sync_state_with_parent (m_pFileSink->sink);
+
+    sinkpad = gst_element_get_static_pad (m_pFileSink->queue, "sink");
+    gst_pad_link (m_pFileSink->teepad, sinkpad);
+    gst_object_unref (sinkpad);
 }
 
 void Pipeline::stop()
 {
-    //TODO
+    if (!m_recording) return;
+
+    qDebug() << "stop recording";
+    m_recording = false;
+
+    gst_pad_add_probe (m_pFileSink->teepad, GST_PAD_PROBE_TYPE_IDLE, unlink_cb, m_pFileSink,
+        (GDestroyNotify) g_free);
+
+    m_pFileSink = nullptr;
 }
 
 void Pipeline::setBrightness(int level)
