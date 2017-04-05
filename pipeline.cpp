@@ -40,9 +40,19 @@ Pipeline::Pipeline(QObject *parent)
     m_pPipeline = gst_pipeline_new("camera");
     m_pV4l2 = gst_element_factory_make ("v4l2src", "v4l2src");
     m_pVpudec = gst_element_factory_make ("avdec_mjpeg", "avdec_mjpeg");
-    m_pQueue = gst_element_factory_make ("queue", "queue");
-    m_pVideoconvert = gst_element_factory_make ("videoconvert", "videoconvert");
-    m_pSink = gst_element_factory_make ("ximagesink", "ximagesink");
+
+    m_pTee = gst_element_factory_make ("tee", "tee");
+
+    // tee one
+    m_pQueue1 = gst_element_factory_make ("queue", "queue 1");
+    m_pVideoconvert1 = gst_element_factory_make ("videoconvert", "convert 1");
+    m_pVideoSink = gst_element_factory_make ("ximagesink", "ximagesink");
+
+    // tee two
+    m_pQueue2 = gst_element_factory_make ("queue", "queue 2");
+    m_pVideoconvert2 = gst_element_factory_make ("videoconvert", "convert 2");
+    m_pEncoder = gst_element_factory_make ("avenc_mpeg4", "avenc_mpeg4");
+    m_pFileSink = gst_element_factory_make ("filesink", "filesink");
 
     m_pFilter1 = gst_caps_new_simple ("image/jpeg",
         "width", G_TYPE_INT, 1280,
@@ -53,12 +63,15 @@ Pipeline::Pipeline(QObject *parent)
 
     m_pExtraControls = gst_structure_new("c", "brightness", G_TYPE_INT, 128, NULL);
 
-    if (!m_pPipeline || !m_pV4l2 || !m_pExtraControls || !m_pFilter1 || !m_pVpudec || !m_pQueue || !m_pVideoconvert || !m_pSink) {
+    if (!m_pPipeline || !m_pV4l2 || !m_pExtraControls || !m_pFilter1 || !m_pVpudec || !m_pQueue1 ||
+        !m_pVideoconvert1 || !m_pVideoSink || !m_pQueue2 || !m_pVideoconvert2 ||
+        !m_pEncoder || !m_pFileSink ) {
         g_printerr ("One element could not be created. Exiting.\n");
         exit(-1);
     }
 
     g_object_set(m_pV4l2, "extra-controls", m_pExtraControls, NULL);
+    g_object_set(m_pFileSink, "location", "test.mpeg", NULL);
 
     /* use usb camera */
     g_object_set (m_pV4l2, "device", "/dev/video1", NULL);
@@ -68,16 +81,28 @@ Pipeline::Pipeline(QObject *parent)
     m_busWatchId = gst_bus_add_watch (m_pBus, bus_call, nullptr);
     gst_object_unref (m_pBus);
 
+
     /* we add all elements into the pipeline */
-    gst_bin_add_many (GST_BIN(m_pPipeline), m_pV4l2, m_pVpudec, m_pQueue, m_pVideoconvert, m_pSink, NULL);
+    gst_bin_add_many (GST_BIN(m_pPipeline), m_pV4l2, m_pVpudec, m_pTee, m_pQueue1, m_pVideoconvert1,
+        m_pVideoSink, m_pQueue2, m_pVideoconvert2, m_pEncoder,  m_pFileSink, NULL);
 
     if (!gst_element_link_filtered(m_pV4l2, m_pVpudec, m_pFilter1)) {
         g_printerr ("Could not link v4l2 caps.\n");
         exit(-1);
     }
 
-    if (!gst_element_link_many (m_pVpudec, m_pQueue, m_pVideoconvert, m_pSink, NULL)) {
-        g_printerr ("Could not link pipeline.\n");
+    if (!gst_element_link_many (m_pVpudec, m_pTee, NULL)) {
+        g_printerr ("Could not link to tee.\n");
+        exit(-1);
+    }
+
+    if (!gst_element_link_many(m_pTee, m_pQueue1, m_pVideoconvert1, m_pVideoSink, NULL)) {
+        g_printerr ("Could not link tee to video sink.\n");
+        exit(-1);
+    }
+
+    if (!gst_element_link_many(m_pTee, m_pQueue2, m_pVideoconvert2, m_pEncoder, m_pFileSink, NULL)) {
+        g_printerr ("Could not link tee to file sink.\n");
         exit(-1);
     }
 

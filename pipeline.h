@@ -19,10 +19,16 @@ private:
     GstElement *m_pPipeline;
     GstElement *m_pV4l2;
     GstElement *m_pVpudec;
-    GstElement *m_pQueue;
-    GstElement *m_pVideoconvert;
-    GstElement *m_pSink;
+    GstElement *m_pQueue1;
+    GstElement *m_pVideoconvert1;
+    GstElement *m_pVideoSink;
     GstCaps *m_pFilter1;
+    GstElement *m_pTee;
+    GstElement *m_pQueue2;
+    GstElement *m_pVideoconvert2;
+    GstElement *m_pEncoder;
+    GstElement *m_pFileSink;
+
     GstBus *m_pBus;
     GstStructure *m_pExtraControls;
 
