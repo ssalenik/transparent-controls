@@ -64,10 +64,12 @@ ApplicationWindow {
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.bottomMargin: 10
 
+        state: "off"
+
         style: ButtonStyle {
             label: Text {
-                text: "\u2B24" // unicode circle for record
-                color: "#ff0000"
+                text: button_record.state == "off" ? "\u2B24" : "\u25A0"
+                color: button_record.state == "off" ? "#ff0000" : "#000000"
                 horizontalAlignment: Text.AlignHCenter
                 verticalAlignment: Text.AlignVCenter
             }
@@ -78,10 +80,20 @@ ApplicationWindow {
                 border.color: "#888"
                 radius: 20
                 gradient: Gradient {
-                    GradientStop { position: 0 ; color: control.pressed ? "#ccc" : "#eee" }
-                    GradientStop { position: 1 ; color: control.pressed ? "#aaa" : "#ccc" }
+                    GradientStop { position: 0 ; color: button_record.state == "on" ? "#ccc" : "#eee" }
+                    GradientStop { position: 1 ; color: button_record.state == "on" ? "#aaa" : "#ccc" }
                 }
             }
+        }
+
+        states: [
+            State { name: "off" },
+            State { name: "on" }
+        ]
+
+        onClicked: {
+            state == "on" ? print("-> off") : print("-> on")
+            state == "on" ? state = "off" : state = "on"
         }
     }
 }
