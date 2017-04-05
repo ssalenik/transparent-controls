@@ -23,7 +23,6 @@ private:
     GstElement *m_pVideoconvert;
     GstElement *m_pSink;
     GstCaps *m_pFilter1;
-    GstCaps *m_pFilter2;
     GstBus *m_pBus;
     GstStructure *m_pExtraControls;
 
