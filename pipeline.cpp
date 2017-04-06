@@ -11,6 +11,7 @@ struct _FileSink
     GstPad *teepad;
     GstElement *queue;
     GstElement *conv1;
+    GstElement *conv2;
     GstElement *enc;
     GstElement *sink;
     gboolean removing;
@@ -144,16 +145,19 @@ unlink_cb(GstPad *, GstPadProbeInfo *, gpointer user_data)
 
     gst_bin_remove (GST_BIN (filesink->pipeline), filesink->queue);
     gst_bin_remove (GST_BIN (filesink->pipeline), filesink->conv1);
+    gst_bin_remove (GST_BIN (filesink->pipeline), filesink->conv2);
     gst_bin_remove (GST_BIN (filesink->pipeline), filesink->enc);
     gst_bin_remove (GST_BIN (filesink->pipeline), filesink->sink);
 
     gst_element_set_state (filesink->sink, GST_STATE_NULL);
     gst_element_set_state (filesink->conv1, GST_STATE_NULL);
+    gst_element_set_state (filesink->conv2, GST_STATE_NULL);
     gst_element_set_state (filesink->enc, GST_STATE_NULL);
     gst_element_set_state (filesink->queue, GST_STATE_NULL);
 
     gst_object_unref (filesink->queue);
     gst_object_unref (filesink->conv1);
+    gst_object_unref (filesink->conv2);
     gst_object_unref (filesink->enc);
     gst_object_unref (filesink->sink);
 
@@ -183,7 +187,8 @@ void Pipeline::record()
 
     // tee two
     m_pFileSink->queue = gst_element_factory_make ("queue", "queue 2");
-    m_pFileSink->conv1 = gst_element_factory_make ("videoconvert", "videoconvert");
+    m_pFileSink->conv1 = gst_element_factory_make ("imxvideoconvert_g2d", "convert g2d");
+    m_pFileSink->conv2 = gst_element_factory_make ("imxvideoconvert_ipu", "convert ipu");
     m_pFileSink->enc = gst_element_factory_make ("imxvpuenc_mpeg4", "imxvpuenc_mpeg4");
     m_pFileSink->sink = gst_element_factory_make ("filesink", "filesink");
 
@@ -194,14 +199,16 @@ void Pipeline::record()
     gst_bin_add_many (GST_BIN (m_pPipeline),
         GST_ELEMENT(gst_object_ref (m_pFileSink->queue)),
         GST_ELEMENT(gst_object_ref (m_pFileSink->conv1)),
+        GST_ELEMENT(gst_object_ref (m_pFileSink->conv2)),
         GST_ELEMENT(gst_object_ref (m_pFileSink->enc)),
         GST_ELEMENT(gst_object_ref (m_pFileSink->sink)),
         NULL);
 
-    gst_element_link_many (m_pFileSink->queue, m_pFileSink->conv1, m_pFileSink->enc, m_pFileSink->sink, NULL);
+    gst_element_link_many (m_pFileSink->queue, m_pFileSink->conv1, m_pFileSink->conv2, m_pFileSink->enc, m_pFileSink->sink, NULL);
 
     gst_element_sync_state_with_parent (m_pFileSink->queue);
     gst_element_sync_state_with_parent (m_pFileSink->conv1);
+    gst_element_sync_state_with_parent (m_pFileSink->conv2);
     gst_element_sync_state_with_parent (m_pFileSink->enc);
     gst_element_sync_state_with_parent (m_pFileSink->sink);
 
