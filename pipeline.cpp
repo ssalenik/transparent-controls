@@ -183,8 +183,8 @@ void Pipeline::record()
 
     // tee two
     m_pFileSink->queue = gst_element_factory_make ("queue", "queue 2");
-    m_pFileSink->conv = gst_element_factory_make ("videoconvert", "convert 2");
-    m_pFileSink->enc = gst_element_factory_make ("avenc_mpeg4", "avenc_mpeg4");
+    m_pFileSink->conv = gst_element_factory_make ("imxvideoconvert_g2d", "convert 2");
+    m_pFileSink->enc = gst_element_factory_make ("imxvpuenc_mpeg4", "imxvpuenc_mpeg4");
     m_pFileSink->sink = gst_element_factory_make ("filesink", "filesink");
 
     g_object_set(m_pFileSink->sink, "location", "test.mpeg", NULL);
