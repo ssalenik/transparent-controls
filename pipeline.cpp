@@ -74,6 +74,8 @@ Pipeline::Pipeline(QObject *parent)
 
     m_pFilter2 = gst_caps_new_simple ("video/x-raw",
         "format", G_TYPE_STRING, "RGB16",
+        "width", G_TYPE_INT, 1024,
+        "height", G_TYPE_INT, 600,
         NULL
     );
 
